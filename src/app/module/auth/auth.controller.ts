@@ -112,10 +112,23 @@ const refreshToken = catchAsync(async (req: Request, res: Response) => {
 		},
 	});
 });
+const googleLogin = catchAsync(async (req: Request, res: Response) => {
+	const result = await AuthService.googleLogin(req.body);
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "New tokens generated successfully",
+		data: {
+			
+		},
+	});
+});
+
 
 export const AuthController = {
 	registerPatient,
 	loginUser,
 	getMe,
 	refreshToken,
+	googleLogin,
 };

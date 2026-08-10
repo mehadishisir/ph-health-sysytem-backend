@@ -5,10 +5,13 @@ import config from "../../config";
 import { prisma } from "../../lib/prisma";
 import { jwtUtils } from "../../utils/jwt";
 import type {
+	IGooglelogin,
 	ILoginUserPayload,
 	IRegisterPatientPayload,
 	IRequestUser,
 } from "./auth.interface";
+import { googleClient } from "../../lib/googleAuth";
+import { TokenPayload } from "google-auth-library";
 
 const registerPatient = async (payload: IRegisterPatientPayload) => {
 	const { name, password } = payload;
@@ -188,9 +191,44 @@ const refreshToken = async (token: string) => {
 	};
 };
 
+const googleLogin = async (payload: IGooglelogin) => {
+
+	// const result = await googleClient.verifyIdToken({
+	// 	idToken: payload.id_token,
+	// })
+	// const googleInfo = result.getPayload()
+
+
+	let googleIdTokenPayload : TokenPayload | null | undefined = null
+	try{
+		const ticket = await googleClient.verifyIdToken({
+			idToken:payload.id_token,
+			audience: config.google_client_id
+		})
+		googleIdTokenPayload = ticket.getPayload()
+
+	} catch (error) {
+		console.log("Error verifying Google ID token:", error);
+		throw new Error("Invalid Google ID token");
+	}
+	if(!googleIdTokenPayload){
+		throw new Error("Invalid Google ID token");
+	}
+
+	const isPatentExistWithGoogleAuth = await prisma.patient.findUnique({
+		where:{
+			email: googleIdTokenPayload.email,
+			role:Role.PATIENT,
+			googleId: googleIdTokenPayload.sub
+		}
+	})
+
+};
+
 export const AuthService = {
 	registerPatient,
 	loginUser,
 	getMe,
 	refreshToken,
+	googleLogin,
 };
