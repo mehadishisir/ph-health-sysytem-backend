@@ -91,7 +91,7 @@ const loginUser = async (payload: ILoginUserPayload) => {
 		throw new Error("User is deleted");
 	}
 
-	const isPasswordMatched = await bcrypt.compare(password, user.password);
+	const isPasswordMatched = await bcrypt.compare(password, user.password as string);
 
 	if (!isPasswordMatched) {
 		throw new Error("Invalid credentials");
@@ -211,18 +211,65 @@ const googleLogin = async (payload: IGooglelogin) => {
 		console.log("Error verifying Google ID token:", error);
 		throw new Error("Invalid Google ID token");
 	}
-	if(!googleIdTokenPayload){
-		throw new Error("Invalid Google ID token");
-	}
+	if (
+    !googleIdTokenPayload ||
+    !googleIdTokenPayload.email ||
+    !googleIdTokenPayload.name ||
+    !googleIdTokenPayload.sub
+) {
+    throw new Error("Invalid Google user information");
+}
+	
 
-	const isPatentExistWithGoogleAuth = await prisma.patient.findUnique({
+
+	const isPatentExistWithGoogleAuth = await prisma.user.findUnique({
 		where:{
 			email: googleIdTokenPayload.email,
 			role:Role.PATIENT,
 			googleId: googleIdTokenPayload.sub
 		}
 	})
+	let user = isPatentExistWithGoogleAuth
+	if(!user){
+		user = await prisma.user.create({
+			data: {
+				name: googleIdTokenPayload.name,
+				email: googleIdTokenPayload.email,
+				role: Role.PATIENT,
+				googleId: googleIdTokenPayload.sub,
+				authProvider: "GOOGLE",
+				patient: {
+					create: {
+						name: googleIdTokenPayload.name,
+						email: googleIdTokenPayload.email,
+					},
+				},
+			},
+		});
+	}
+	const jwtPayload = {
+		userId: user.id,
+		name: user.name,
+		email: user.email,
+		role: user.role,
+	};
 
+	const accessToken = jwtUtils.createToken(
+		jwtPayload,
+		config.jwt_access_secret,
+		config.jwt_access_expires_in as SignOptions,
+	);
+
+	const refreshToken = jwtUtils.createToken(
+		jwtPayload,
+		config.jwt_refresh_secret,
+		config.jwt_refresh_expires_in as SignOptions,
+	);
+
+	return {
+		accessToken,
+		refreshToken,
+	};
 };
 
 export const AuthService = {
