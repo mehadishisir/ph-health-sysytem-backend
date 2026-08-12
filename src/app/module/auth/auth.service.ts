@@ -1,6 +1,10 @@
 import bcrypt from "bcryptjs";
 import type { JwtPayload, SignOptions } from "jsonwebtoken";
-import { Role, UserStatus } from "../../../generated/prisma/enums";
+import {
+	AuthProvider,
+	Role,
+	UserStatus,
+} from "../../../generated/prisma/enums";
 import config from "../../config";
 import { prisma } from "../../lib/prisma";
 import { jwtUtils } from "../../utils/jwt";
@@ -11,7 +15,7 @@ import type {
 	IRequestUser,
 } from "./auth.interface";
 import { googleClient } from "../../lib/googleAuth";
-import { TokenPayload } from "google-auth-library";
+import type { TokenPayload } from "google-auth-library";
 
 const registerPatient = async (payload: IRegisterPatientPayload) => {
 	const { name, password } = payload;
@@ -91,7 +95,10 @@ const loginUser = async (payload: ILoginUserPayload) => {
 		throw new Error("User is deleted");
 	}
 
-	const isPasswordMatched = await bcrypt.compare(password, user.password as string);
+	const isPasswordMatched = await bcrypt.compare(
+		password,
+		user.password as string,
+	);
 
 	if (!isPasswordMatched) {
 		throw new Error("Invalid credentials");
@@ -192,52 +199,78 @@ const refreshToken = async (token: string) => {
 };
 
 const googleLogin = async (payload: IGooglelogin) => {
-
 	// const result = await googleClient.verifyIdToken({
 	// 	idToken: payload.id_token,
 	// })
 	// const googleInfo = result.getPayload()
 
-
-	let googleIdTokenPayload : TokenPayload | null | undefined = null
-	try{
+	let googleIdTokenPayload: TokenPayload | null | undefined = null;
+	try {
 		const ticket = await googleClient.verifyIdToken({
-			idToken:payload.id_token,
-			audience: config.google_client_id
-		})
-		googleIdTokenPayload = ticket.getPayload()
-
+			idToken: payload.id_token,
+			audience: config.google_client_id,
+		});
+		googleIdTokenPayload = ticket.getPayload();
 	} catch (error) {
 		console.log("Error verifying Google ID token:", error);
 		throw new Error("Invalid Google ID token");
 	}
 	if (
-    !googleIdTokenPayload ||
-    !googleIdTokenPayload.email ||
-    !googleIdTokenPayload.name ||
-    !googleIdTokenPayload.sub
-) {
-    throw new Error("Invalid Google user information");
-}
-	
-
+		!googleIdTokenPayload ||
+		!googleIdTokenPayload.email ||
+		!googleIdTokenPayload.name ||
+		!googleIdTokenPayload.sub
+	) {
+		throw new Error("Invalid Google user information");
+	}
 
 	const isPatentExistWithGoogleAuth = await prisma.user.findUnique({
-		where:{
+		where: {
 			email: googleIdTokenPayload.email,
-			role:Role.PATIENT,
-			googleId: googleIdTokenPayload.sub
+			role: Role.PATIENT,
+			googleId: googleIdTokenPayload.sub,
+		},
+	});
+	let user = isPatentExistWithGoogleAuth;
+	if (!isPatentExistWithGoogleAuth) {
+		const isPatientExistWithCredentials = await prisma.user.findUnique({
+			where: {
+				email: googleIdTokenPayload.email,
+				role: Role.PATIENT,
+				authProvider: AuthProvider.CREDENTIAL,
+			},
+		});
+		if (isPatientExistWithCredentials) {
+			if (!isPatientExistWithCredentials.emailVerified) {
+				throw new Error("Email Not Verified");
+			}
+			if (isPatientExistWithCredentials.status === UserStatus.BLOCKED) {
+				throw new Error("User is Blocked");
+			}
+			if (
+				isPatientExistWithCredentials.isDeleted ||
+				isPatientExistWithCredentials.status === UserStatus.DELETED
+			) {
+				throw new Error("User Iss Deleted");
+			}
+			user = await prisma.user.update({
+				where: {
+					id: isPatientExistWithCredentials.id,
+				},
+				data: {
+					googleId: googleIdTokenPayload.sub,
+				},
+			});
 		}
-	})
-	let user = isPatentExistWithGoogleAuth
-	if(!user){
+	} else {
 		user = await prisma.user.create({
 			data: {
 				name: googleIdTokenPayload.name,
 				email: googleIdTokenPayload.email,
 				role: Role.PATIENT,
 				googleId: googleIdTokenPayload.sub,
-				authProvider: "GOOGLE",
+				authProvider: AuthProvider.GOOGLE,
+				emailVerified: true,
 				patient: {
 					create: {
 						name: googleIdTokenPayload.name,
@@ -246,6 +279,16 @@ const googleLogin = async (payload: IGooglelogin) => {
 				},
 			},
 		});
+	}
+	if (!user) {
+		throw new Error("User not found or created");
+	}
+	if (user.status === UserStatus.BLOCKED) {
+		throw new Error("User is blocked");
+	}
+
+	if (user.isDeleted || user.status === UserStatus.DELETED) {
+		throw new Error("User is deleted");
 	}
 	const jwtPayload = {
 		userId: user.id,
