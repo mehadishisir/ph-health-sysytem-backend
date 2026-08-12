@@ -94,6 +94,9 @@ const loginUser = async (payload: ILoginUserPayload) => {
 	if (user.isDeleted || user.status === UserStatus.DELETED) {
 		throw new Error("User is deleted");
 	}
+	if(user.password === null && user.googleId !== null){
+		throw new Error("Please login with Google");
+	}
 
 	const isPasswordMatched = await bcrypt.compare(
 		password,
@@ -224,15 +227,15 @@ const googleLogin = async (payload: IGooglelogin) => {
 		throw new Error("Invalid Google user information");
 	}
 
-	const isPatentExistWithGoogleAuth = await prisma.user.findUnique({
+	const isPatintExistWithGoogleAuth = await prisma.user.findUnique({
 		where: {
 			email: googleIdTokenPayload.email,
 			role: Role.PATIENT,
 			googleId: googleIdTokenPayload.sub,
 		},
 	});
-	let user = isPatentExistWithGoogleAuth;
-	if (!isPatentExistWithGoogleAuth) {
+	let user = isPatintExistWithGoogleAuth;
+	if (!isPatintExistWithGoogleAuth) {
 		const isPatientExistWithCredentials = await prisma.user.findUnique({
 			where: {
 				email: googleIdTokenPayload.email,
@@ -262,7 +265,7 @@ const googleLogin = async (payload: IGooglelogin) => {
 				},
 			});
 		}
-	} else {
+		else {
 		user = await prisma.user.create({
 			data: {
 				name: googleIdTokenPayload.name,
@@ -279,6 +282,7 @@ const googleLogin = async (payload: IGooglelogin) => {
 				},
 			},
 		});
+	} 
 	}
 	if (!user) {
 		throw new Error("User not found or created");
