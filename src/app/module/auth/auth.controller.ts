@@ -4,10 +4,31 @@ import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
 import type { IRequestUser } from "./auth.interface";
 import { AuthService } from "./auth.service";
+import z from "zod";
 
+const PatientRegistrationZodSchema = z.object(
+	{
+      name: z.string().min(3).max(10),
+	  email:z.email(),
+	  password: z.string()
+	  .min(8, "Password must be at least 8 characters")
+      .max(32, "Password must be at most 32 characters")
+      .regex(/[a-z]/, )
+      .regex(/[A-Z]/, )
+      .regex(/[0-9]/, )
+      .regex(/[^a-zA-Z0-9]/, ),
+	  patient:z.object({
+          contactNumber:z.string(),
+	  }).optional(),
+
+	})
 const registerPatient = catchAsync(async (req: Request, res: Response) => {
-	const payload = req.body;
-	const result = await AuthService.registerPatient(payload);
+	const payLoad = PatientRegistrationZodSchema.safeParse(req.body);
+	if (!payLoad.success) {
+		throw new Error("Invalid request payload");
+	}
+	
+	const result = await AuthService.registerPatient(payLoad.data);
 
 	const { accessToken, refreshToken, user, patient } = result;
 
