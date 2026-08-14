@@ -49,6 +49,7 @@ export const globalErrorHandler = async (
 	} else if (err instanceof Error) {
 		errorMessage = err.message;
 	}
+	// console.log("Error from Global Error Handler", err);
 
 	res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
 		success: false,
