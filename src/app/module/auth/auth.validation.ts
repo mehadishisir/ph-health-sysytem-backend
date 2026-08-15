@@ -17,6 +17,6 @@ const PatientRegistrationZodSchema = z.object(
 
 	})
 
-    export const PatientValidation = {
+    export const UserValidation = {
         PatientRegistrationZodSchema
     }
