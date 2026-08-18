@@ -18,6 +18,8 @@ import type {
 } from "./auth.interface";
 import { googleClient } from "../../lib/googleAuth";
 import type { TokenPayload } from "google-auth-library";
+import crypto from "crypto";
+import { radisClient } from "../../lib/radis";
 
 const registerPatient = async (payload: IRegisterPatientPayload) => {
 	const { name, password } = payload;
@@ -338,6 +340,24 @@ const forgotPassword = async (payload: IForgotPassword) => {
 	if(isUserExists.authProvider === AuthProvider.GOOGLE){
 		throw new Error("User is registered with Google. Please login with Google.");
 	}
+	if(isUserExists.status === UserStatus.BLOCKED){
+		throw new Error("User is blocked");
+	}
+		if(isUserExists.isDeleted || isUserExists.status === "DELETED"){
+		throw new Error("User is Deleted")
+	}
+
+	const otp = crypto.randomInt(100000, 999999).toString();
+	const key = `forgot-password:${email}`;
+	const ttl = 5 * 60; // 5 minutes in seconds
+    await radisClient.set(key,otp,{
+		expiration:{
+			type:"EX",
+
+			value:ttl
+		}
+	})
+
 };
 const resetPassword = async (payload: IResetPassword) => {};
 
