@@ -19,7 +19,7 @@ import type {
 import { googleClient } from "../../lib/googleAuth";
 import type { TokenPayload } from "google-auth-library";
 import crypto from "crypto";
-import { radisClient } from "../../lib/radis";
+import { redisClient } from "../../lib/redis";
 
 const registerPatient = async (payload: IRegisterPatientPayload) => {
 	const { name, password } = payload;
@@ -350,7 +350,7 @@ const forgotPassword = async (payload: IForgotPassword) => {
 	const otp = crypto.randomInt(100000, 999999).toString();
 	const key = `forgot-password:${email}`;
 	const ttl = 5 * 60; // 5 minutes in seconds
-    await radisClient.set(key,otp,{
+    await redisClient.set(key,otp,{
 		expiration:{
 			type:"EX",
 
@@ -359,7 +359,57 @@ const forgotPassword = async (payload: IForgotPassword) => {
 	})
 
 };
-const resetPassword = async (payload: IResetPassword) => {};
+const resetPassword = async (payload: IResetPassword) => {
+	const {email,newPassword,otp}=payload;
+	const isUserExist = await prisma.user.findUnique({
+		where:{
+			email
+		}
+	})
+	if(!isUserExist){
+		throw new Error("User Does not Exist!");
+		
+	}
+	if (isUserExist.status === "BLOCKED") {
+		throw new Error("User is Blocked")
+	}
+
+	if (!isUserExist.emailVerified) {
+		throw new Error("User Not Verified")
+	}
+
+	if (isUserExist.isDeleted || isUserExist.status === "DELETED") {
+		throw new Error("User is Deleted")
+	}
+
+	if (isUserExist.googleId && isUserExist.authProvider === "GOOGLE") {
+		throw new Error("User Has Account With Google")
+	}
+	const key = `forgot-password:${isUserExist.email}`;
+	const redisOtp = await redisClient.get(key)
+
+	if(!redisOtp){
+		throw new Error("invalied otp");
+		
+	}
+	if(redisOtp !== otp){
+		throw new Error("OTP doesnt matched");
+		
+	}
+	const hashedNewPassword = await bcrypt.hash(newPassword,Number(config.bcrypt_salt_rounds))
+
+	await prisma.user.update({
+		where :{
+			email : isUserExist.email
+		},
+		data:{
+			password:hashedNewPassword
+		}
+	})
+	await redisClient.del([key]);
+
+	
+};
 
 export const AuthService = {
 	registerPatient,

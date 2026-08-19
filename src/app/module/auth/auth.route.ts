@@ -15,7 +15,7 @@ router.post("/register",validateRequest(UserValidation.PatientRegistrationZodSch
 
 router.post("/login", AuthController.loginUser);
 router.post("/forgot-password", AuthController.forgotPassword)
-router.post("/reset-password", AuthController.resetPassword)
+router.post("/reset-password",validateRequest(UserValidation.ResetPasswordZodSchema), AuthController.resetPassword)
 router.get(
 	"/me",
 	auth(Role.ADMIN, Role.DOCTOR, Role.PATIENT, Role.SUPER_ADMIN),
