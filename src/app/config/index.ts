@@ -27,6 +27,11 @@ export default {
 	radis_user:process.env.RADIS_USER!,
 	radis_password:process.env.RADIS_PASSWORD!,
 	radis_host:process.env.RADIS_HOST!,
-	radis_port:process.env.RADIS_PORT!
+	radis_port:process.env.RADIS_PORT!,
+	smtp_user:process.env.SMTP_USER!,
+	smtp_password:process.env.SMTP_PASSWORD!,
+	email_sender:process.env.EMAIL_SENDER!
+
+
 
 };
