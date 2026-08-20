@@ -19,7 +19,7 @@ const PatientRegistrationZodSchema = z.object(
 
     const ResetPasswordZodSchema= z.object({
          email:z.email(),
-	  password: z.string()
+	  newPassword: z.string()
 	  .min(8, "Password must be at least 8 characters")
       .max(32, "Password must be at most 32 characters")
       .regex(/[a-z]/,"Password must contain at least one lowercase letter" )
@@ -29,6 +29,7 @@ const PatientRegistrationZodSchema = z.object(
 	  patient:z.object({
           contactNumber:z.string(),
 	  }).optional(),
+      otp:z.string()
 
     })
 

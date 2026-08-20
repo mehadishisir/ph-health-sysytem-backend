@@ -393,9 +393,10 @@ const resetPassword = async (payload: IResetPassword) => {
 		
 	}
 	if(redisOtp !== otp){
-		throw new Error("OTP doesnt matched");
-		
-	}
+    console.log("redisOtp:", redisOtp, typeof redisOtp);
+    console.log("payload otp:", otp, typeof otp);
+    throw new Error("OTP doesnt matched");
+}
 	const hashedNewPassword = await bcrypt.hash(newPassword,Number(config.bcrypt_salt_rounds))
 
 	await prisma.user.update({
