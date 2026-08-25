@@ -25,7 +25,7 @@ import ejs from "ejs"
 import path from "path"
 
 const registerPatient = async (payload: IRegisterPatientPayload) => {
-	const { name, password } = payload;
+	const { name, password , patient:patientdata} = payload;
 	const email = payload.email.trim().toLowerCase();
 
 	const isUserExists = await prisma.user.findUnique({
@@ -37,6 +37,12 @@ const registerPatient = async (payload: IRegisterPatientPayload) => {
 	}
 
 	const hashedPassword = await bcrypt.hash(password, 8);
+	const redisUserDataPayload={
+		name,
+		email,
+		password: hashedPassword,
+		patient : patientdata
+	}
 
 	const createdUser = await prisma.user.create({
 		data: {
