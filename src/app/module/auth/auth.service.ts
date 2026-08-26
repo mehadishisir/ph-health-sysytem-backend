@@ -15,6 +15,7 @@ import type {
 	IRegisterPatientPayload,
 	IRequestUser,
 	IResetPassword,
+	IVerifyEmailPayload,
 } from "./auth.interface";
 import { googleClient } from "../../lib/googleAuth";
 import type { TokenPayload } from "google-auth-library";
@@ -71,16 +72,57 @@ const registerPatient = async (payload: IRegisterPatientPayload) => {
 	const html = await ejs.renderFile(tempatePath,tempateData)
 	await transporter.sendMail({from: config.email_sender, to : email , subject: "Email Verification", html})
 
-	const createdUser = await prisma.user.create({
+	
+};
+
+const varifyPatientEmail = async (payload:IVerifyEmailPayload)=>{
+	const otp = payload.otp
+	const email = payload.email.trim().toLowerCase()
+	const isUserExist = await prisma.user.findUnique({where:{email}})
+
+
+	if(isUserExist?.status === "BLOCKED"){
+		throw new Error("User is Blocked");
+		
+	}
+	if(isUserExist?.emailVerified){
+		throw new Error("Email Alreday Veryfied");
+		
+	}
+	if(isUserExist?.isDeleted || isUserExist?.status === "DELETED"
+	){
+		throw new Error("User Is deleted");
+		
+	}
+
+	const otpKey = `patient-registration-otp : ${email}`
+	const redisOtp = await redisClient.get(otpKey)
+	if(!redisOtp){
+		throw new Error("Invalid OTP");
+		
+	}
+if(redisOtp !== otp)
+	throw new Error("OTP Does NOT Match");
+
+await redisClient.del(otpKey)
+	
+
+   const patientRegistrationKey = ` patient-registration-data:${email}`
+   const redisPatientData = await redisClient.get(patientRegistrationKey)
+   if(!redisPatientData)throw new Error("Patient Doesnot Exist");
+   const patientPayload : IRegisterPatientPayload = JSON.parse(redisPatientData)
+
+   const createdUser = await prisma.user.create({
 		data: {
-			name,
-			email,
-			password: hashedPassword,
+			name : patientPayload.name,
+			email : patientPayload.email,
+			password: patientPayload.password,
 			role: Role.PATIENT,
 			status: UserStatus.ACTIVE,
-			emailVerified: false,
+			emailVerified: true,
 			patient: {
-				create: { name, email },
+				create: { name:patientPayload.name, email:patientPayload.email },
+				contactNumber : patientPayload?.patient?.contactNumber || ""
 			},
 		},
 		omit: { password: true },
@@ -113,7 +155,9 @@ const registerPatient = async (payload: IRegisterPatientPayload) => {
 		accessToken,
 		refreshToken,
 	};
-};
+   
+
+}
 
 const loginUser = async (payload: ILoginUserPayload) => {
 	const { password } = payload;
