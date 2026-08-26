@@ -13,7 +13,23 @@ const registerPatient = catchAsync(async (req: Request, res: Response) => {
 	const payLoad = req.body;
 	
 	
-	const result = await AuthService.registerPatient(payLoad);
+
+ await AuthService.registerPatient(payLoad)
+	
+
+	
+	sendResponse(res, {
+		statusCode: httpStatus.CREATED,
+		success: true,
+		message: "Patient registered successfully",
+		data: null
+	});
+});
+const verifyPatientEmail = catchAsync(async (req: Request, res: Response) => {
+
+	const payload = req.body;
+	
+	const result = await AuthService.varifyPatientEmail(payload);
 
 	const { accessToken, refreshToken, user, patient } = result;
 
@@ -33,15 +49,16 @@ const registerPatient = catchAsync(async (req: Request, res: Response) => {
 	sendResponse(res, {
 		statusCode: httpStatus.CREATED,
 		success: true,
-		message: "Patient registered successfully",
+		message: "Email Verified Successfully",
 		data: {
 			accessToken,
 			refreshToken,
 			user,
-			patient,
-		},
+			patient
+		}
 	});
 });
+
 
 const loginUser = catchAsync(async (req: Request, res: Response) => {
 	const payload = req.body;
@@ -172,6 +189,7 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
 
 export const AuthController = {
 	registerPatient,
+	verifyPatientEmail,
 	loginUser,
 	getMe,
 	refreshToken,
