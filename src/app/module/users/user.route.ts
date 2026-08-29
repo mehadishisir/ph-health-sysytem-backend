@@ -8,7 +8,7 @@ import { userController } from "./user.controller";
 const router = Router();
 
 router.patch("/profile-image", 
-    
+    auth(Role.ADMIN,Role.DOCTOR,Role.PATIENT,Role.SUPER_ADMIN),
     upload.single("profileImage"),
     userController.uploadProfileImage);
 
