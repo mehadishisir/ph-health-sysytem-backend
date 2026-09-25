@@ -2,10 +2,11 @@ import { createClient } from 'redis';
 import config from '../config';
 
 export const redisClient = createClient({
-    username: config.radis_user,
-    password: config.radis_password,
+    url: config.redis_url,
+    username: config.redis_user,
+    password: config.redis_password,
     socket: {
-        host: config.radis_host,
-        port: Number(config.radis_port)
+        host: config.redis_host,
+        port: Number(config.redis_port)
     }
 });
